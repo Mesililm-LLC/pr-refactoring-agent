@@ -285,8 +285,11 @@ runs:
           MODEL="cloudflare-ci/$model_id"
         fi
 
-        # Strip any command prefix starting with / (e.g., /cs-agent, /refactor, etc.)
-        FULL_COMMAND=$(echo "$COMMAND" | sed 's|^/[^ ]\+ \+||')
+        # Commands without an explicit skill use the PR regression-repair workflow.
+        FULL_COMMAND=$(printf '%s' "$COMMAND" | sed -E 's#^/[^[:space:]]+([[:space:]]+|$)##')
+        if ! printf '%s' "$FULL_COMMAND" | grep -Eq '(^|[[:space:]])skill:[^[:space:]]+'; then
+          FULL_COMMAND="skill:fix-code-health-degradations"
+        fi
 
         ARGS=("run" "$FULL_COMMAND" "--model" "$MODEL" "--push")
 
