@@ -234,6 +234,15 @@ runs:
       run: |
         set -euo pipefail
 
+        # Isolate bundled OpenCode v1 from repository OpenCode v2 settings.
+        # Global instructions remain enabled when project configuration is disabled.
+        export OPENCODE_DISABLE_PROJECT_CONFIG=true
+        guidance_dir="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+        mkdir -p "$guidance_dir"
+        if [ -f AGENTS.md ]; then
+          cp AGENTS.md "$guidance_dir/AGENTS.md"
+          printf '\nRead applicable nested AGENTS.md files before changing their files.\n' >> "$guidance_dir/AGENTS.md"
+        fi
         BINARY="${RUNNER_TEMP}/refactoring-agent/refactoring-agent"
 
         # Strip any command prefix starting with / (e.g., /cs-agent, /refactor, etc.)
