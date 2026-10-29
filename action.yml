@@ -250,6 +250,23 @@ runs:
         fi
         BINARY="${RUNNER_TEMP}/refactoring-agent/refactoring-agent"
 
+        if [[ "$MODEL" == cloudflare-workers-ai/* ]]; then
+          if [ -z "$config_backup" ]; then
+            echo "::error::Workers AI compatibility requires tracked project configuration"
+            exit 1
+          fi
+          model_id="${MODEL#cloudflare-workers-ai/}"
+          jq --arg model "$model_id" --arg account "$CLOUDFLARE_ACCOUNT_ID" --arg key "$CLOUDFLARE_API_KEY" '
+            .provider["cloudflare-ci"] = {
+              npm: "@ai-sdk/openai-compatible",
+              name: "Cloudflare Workers AI",
+              options: {baseURL: ("https://api.cloudflare.com/client/v4/accounts/" + $account + "/ai/v1"), apiKey: $key},
+              models: {($model): {name: $model, limit: {context: 1048576, output: 16384}}}
+            }' opencode.json > "${RUNNER_TEMP}/opencode-provider.json"
+          cp "${RUNNER_TEMP}/opencode-provider.json" opencode.json
+          MODEL="cloudflare-ci/$model_id"
+        fi
+
         # Strip any command prefix starting with / (e.g., /cs-agent, /refactor, etc.)
         FULL_COMMAND=$(echo "$COMMAND" | sed 's|^/[^ ]\+ \+||')
 
