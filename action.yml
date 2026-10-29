@@ -234,14 +234,19 @@ runs:
       run: |
         set -euo pipefail
 
-        # Isolate bundled OpenCode v1 from repository OpenCode v2 settings.
-        # Global instructions remain enabled when project configuration is disabled.
-        export OPENCODE_DISABLE_PROJECT_CONFIG=true
-        guidance_dir="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
-        mkdir -p "$guidance_dir"
-        if [ -f AGENTS.md ]; then
-          cp AGENTS.md "$guidance_dir/AGENTS.md"
-          printf '\nRead applicable nested AGENTS.md files before changing their files.\n' >> "$guidance_dir/AGENTS.md"
+        config_backup=""
+        restore_config() {
+          if [ -n "$config_backup" ]; then
+            cp "$config_backup" opencode.json
+            git update-index --no-skip-worktree -- opencode.json
+          fi
+        }
+        trap restore_config EXIT
+        if [ -f opencode.json ] && jq -e '.mcp.servers | type == "object"' opencode.json >/dev/null 2>&1; then
+          config_backup="${RUNNER_TEMP}/opencode-original.json"
+          cp opencode.json "$config_backup"
+          git update-index --skip-worktree -- opencode.json
+          jq '.mcp = .mcp.servers | .mcp |= with_entries(.value.enabled = false)' "$config_backup" > opencode.json
         fi
         BINARY="${RUNNER_TEMP}/refactoring-agent/refactoring-agent"
 
