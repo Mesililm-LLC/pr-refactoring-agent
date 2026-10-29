@@ -235,7 +235,13 @@ runs:
         set -euo pipefail
 
         config_backup=""
+        created_config=false
+        exclude_backup=""
         restore_config() {
+          if [ "$created_config" = true ]; then
+            rm -f opencode.json
+            cp "$exclude_backup" "$exclude_path"
+          fi
           if [ -n "$config_backup" ]; then
             cp "$config_backup" opencode.json
             git update-index --no-skip-worktree -- opencode.json
@@ -251,9 +257,19 @@ runs:
         BINARY="${RUNNER_TEMP}/refactoring-agent/refactoring-agent"
 
         if [[ "$MODEL" == cloudflare-workers-ai/* ]]; then
-          if [ -z "$config_backup" ]; then
-            echo "::error::Workers AI compatibility requires tracked project configuration"
-            exit 1
+          if [ -z "$config_backup" ] && [ -f opencode.json ]; then
+            config_backup="${RUNNER_TEMP}/opencode-original.json"
+            cp opencode.json "$config_backup"
+            git update-index --skip-worktree -- opencode.json
+          elif [ ! -f opencode.json ]; then
+            exclude_path="$(git rev-parse --git-path info/exclude)"
+            mkdir -p "$(dirname "$exclude_path")"
+            touch "$exclude_path"
+            exclude_backup="${RUNNER_TEMP}/opencode-exclude-original"
+            cp "$exclude_path" "$exclude_backup"
+            printf '\n/opencode.json\n' >> "$exclude_path"
+            created_config=true
+            printf '{}\n' > opencode.json
           fi
           model_id="${MODEL#cloudflare-workers-ai/}"
           credential_file="${RUNNER_TEMP}/cloudflare-provider-key"
